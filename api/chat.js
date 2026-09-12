@@ -51,12 +51,12 @@ Be encouraging and concise.`,
     const data = await response.json();
 
     if (!response.ok) {
-      console.error(data);
+  console.error("OpenAI ERROR:", data);
 
-      return res.status(response.status).json({
-        error: "OpenAI could not answer the question."
-      });
-    }
+  return res.status(response.status).json({
+    error: data?.error?.message || "OpenAI could not answer the question."
+  });
+}
 
     return res.status(200).json({
       answer: data.output_text || "Sorry, I couldn't generate an answer."
