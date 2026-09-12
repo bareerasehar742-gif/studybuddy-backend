@@ -15,15 +15,9 @@ export default async function handler(req, res) {
     "Content-Type"
   );
 
-
-  /* Handle browser preflight */
-
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
-
-
-  /* Only allow POST */
 
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -31,24 +25,103 @@ export default async function handler(req, res) {
     });
   }
 
-
   try {
 
-    const { question } = req.body || {};
-
-
-    /* Check question */
+    const {
+      question,
+      action
+    } = req.body || {};
 
     if (!question || !question.trim()) {
-
       return res.status(400).json({
-        error: "Please enter a question."
+        error: "Please enter something."
+      });
+    }
+
+
+    /* =========================
+       IMAGE GENERATION
+       ========================= */
+
+    if (action === "image") {
+
+      const imageResponse = await fetch(
+        "https://api.openai.com/v1/images/generations",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization":
+              `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+
+          body: JSON.stringify({
+
+            model: "gpt-image-2",
+
+            prompt: question.trim(),
+
+            size: "1024x1024"
+
+          })
+        }
+      );
+
+
+      const imageData =
+        await imageResponse.json();
+
+
+      if (!imageResponse.ok) {
+
+        console.error(
+          "IMAGE ERROR:",
+          JSON.stringify(imageData)
+        );
+
+        return res.status(
+          imageResponse.status
+        ).json({
+
+          error:
+            imageData?.error?.message ||
+            "Image generation failed."
+
+        });
+
+      }
+
+
+      const image =
+        imageData?.data?.[0]?.b64_json;
+
+
+      if (!image) {
+
+        return res.status(500).json({
+
+          error:
+            "The image was generated, but no image data was returned."
+
+        });
+
+      }
+
+
+      return res.status(200).json({
+
+        image:
+          `data:image/png;base64,${image}`
+
       });
 
     }
 
 
-    /* Ask OpenAI */
+    /* =========================
+       NORMAL CHAT
+       ========================= */
 
     const response = await fetch(
       "https://api.openai.com/v1/responses",
@@ -57,7 +130,6 @@ export default async function handler(req, res) {
 
         headers: {
           "Content-Type": "application/json",
-
           "Authorization":
             `Bearer ${process.env.OPENAI_API_KEY}`
         },
@@ -66,12 +138,13 @@ export default async function handler(req, res) {
 
           model: "gpt-5.6-luna",
 
-          instructions:
-            `You are PochoJii AI, a friendly general-purpose AI assistant.
+          instructions: `
+You are PochoJii AI.
 
-Your tagline is: "Poch jo poochna hai."
+Your tagline is:
+"Poch jo poochna hai."
 
-Answer the user's questions clearly, accurately, and safely.
+You are a friendly general-purpose AI assistant.
 
 You can help with:
 - General questions
@@ -80,70 +153,75 @@ You can help with:
 - Science
 - Programming
 - Writing
-- Ideas and brainstorming
+- Ideas
+- Brainstorming
 - Explanations
 - Problem solving
 - Everyday questions
 
-Explain difficult things simply when helpful.
+Explain difficult things simply.
 
-Be friendly, useful, and concise.
+Be friendly, useful and concise.
 
-Do not pretend to be a teacher for only one specific subject or exam.`,
+If the user asks for a document,
+give well-organized content that can
+be turned into a PDF.
+
+Do not claim that you created an actual
+PDF or image when you only generated text.
+          `,
 
           input: question.trim()
 
         })
-
       }
     );
 
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
-
-    console.log(
-      "OPENAI STATUS:",
-      response.status
-    );
-
-
-    /* OpenAI error */
 
     if (!response.ok) {
 
-      console.log(
+      console.error(
         "OPENAI ERROR:",
         JSON.stringify(data)
       );
 
-      return res.status(response.status).json({
+      return res.status(
+        response.status
+      ).json({
+
         error:
           data?.error?.message ||
           "OpenAI request failed."
+
       });
 
     }
 
 
-    /* Get answer */
+    let answer =
+      data.output_text;
 
-    let answer = data.output_text;
-
-
-    /* Backup answer extraction */
 
     if (!answer && data.output) {
 
-      for (const item of data.output) {
+      for (
+        const item of data.output
+      ) {
 
         if (item.content) {
 
-          for (const content of item.content) {
+          for (
+            const content of item.content
+          ) {
 
             if (content.text) {
 
-              answer = content.text;
+              answer =
+                content.text;
 
               break;
 
@@ -160,14 +238,7 @@ Do not pretend to be a teacher for only one specific subject or exam.`,
     }
 
 
-    /* No answer */
-
     if (!answer) {
-
-      console.log(
-        "NO ANSWER:",
-        JSON.stringify(data)
-      );
 
       return res.status(500).json({
 
@@ -178,8 +249,6 @@ Do not pretend to be a teacher for only one specific subject or exam.`,
 
     }
 
-
-    /* Send answer to website */
 
     return res.status(200).json({
 
@@ -195,12 +264,11 @@ Do not pretend to be a teacher for only one specific subject or exam.`,
       error
     );
 
-
     return res.status(500).json({
 
       error:
         error.message ||
-        "Something went wrong with PochoJii AI."
+        "Something went wrong with PochoJii."
 
     });
 
