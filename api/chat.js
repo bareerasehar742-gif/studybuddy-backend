@@ -1,5 +1,11 @@
 export default async function handler(req, res) {
 
+  /*
+   * ============================
+   * CORS
+   * ============================
+   */
+
   res.setHeader(
     "Access-Control-Allow-Origin",
     "https://bareerasehar742-gif.github.io"
@@ -15,15 +21,36 @@ export default async function handler(req, res) {
     "Content-Type"
   );
 
+
+  /*
+   * ============================
+   * PREFLIGHT
+   * ============================
+   */
+
   if (req.method === "OPTIONS") {
+
     return res.status(200).end();
+
   }
 
+
+  /*
+   * ============================
+   * ONLY POST
+   * ============================
+   */
+
   if (req.method !== "POST") {
+
     return res.status(405).json({
+
       error: "Method not allowed"
+
     });
+
   }
+
 
   try {
 
@@ -32,41 +59,68 @@ export default async function handler(req, res) {
       action
     } = req.body || {};
 
-    if (!question || !question.trim()) {
+
+    /*
+     * ============================
+     * VALIDATE
+     * ============================
+     */
+
+    if (
+      !question ||
+      !question.trim()
+    ) {
+
       return res.status(400).json({
-        error: "Please enter something."
+
+        error:
+          "Please enter something."
+
       });
+
     }
 
 
-    /* =========================
-       IMAGE GENERATION
-       ========================= */
+    /*
+     * ============================
+     * IMAGE GENERATION
+     * ============================
+     */
 
     if (action === "image") {
 
-      const imageResponse = await fetch(
-        "https://api.openai.com/v1/images/generations",
-        {
-          method: "POST",
+      const imageResponse =
+        await fetch(
+          "https://api.openai.com/v1/images/generations",
+          {
 
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization":
-              `Bearer ${process.env.OPENAI_API_KEY}`
-          },
+            method: "POST",
 
-          body: JSON.stringify({
+            headers: {
 
-            model: "gpt-image-2",
+              "Content-Type":
+                "application/json",
 
-            prompt: question.trim(),
+              "Authorization":
+                `Bearer ${process.env.OPENAI_API_KEY}`
 
-            size: "1024x1024"
+            },
 
-          })
-        }
-      );
+            body: JSON.stringify({
+
+              model:
+                "gpt-image-2",
+
+              prompt:
+                question.trim(),
+
+              size:
+                "1024x1024"
+
+            })
+
+          }
+        );
 
 
       const imageData =
@@ -79,6 +133,7 @@ export default async function handler(req, res) {
           "IMAGE ERROR:",
           JSON.stringify(imageData)
         );
+
 
         return res.status(
           imageResponse.status
@@ -119,34 +174,46 @@ export default async function handler(req, res) {
     }
 
 
-    /* =========================
-       NORMAL CHAT
-       ========================= */
+    /*
+     * ============================
+     * NORMAL CHAT
+     * ============================
+     */
 
-    const response = await fetch(
-      "https://api.openai.com/v1/responses",
-      {
-        method: "POST",
+    const response =
+      await fetch(
+        "https://api.openai.com/v1/responses",
+        {
 
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization":
-            `Bearer ${process.env.OPENAI_API_KEY}`
-        },
+          method: "POST",
 
-        body: JSON.stringify({
+          headers: {
 
-          model: "gpt-5.6-luna",
+            "Content-Type":
+              "application/json",
 
-          instructions: `
+            "Authorization":
+              `Bearer ${process.env.OPENAI_API_KEY}`
+
+          },
+
+          body: JSON.stringify({
+
+            model:
+              "gpt-5.6-luna",
+
+            instructions: `
+
 You are PochoJii AI.
 
 Your tagline is:
+
 "Poch jo poochna hai."
 
 You are a friendly general-purpose AI assistant.
 
 You can help with:
+
 - General questions
 - School and learning
 - Mathematics
@@ -158,29 +225,41 @@ You can help with:
 - Explanations
 - Problem solving
 - Everyday questions
+- Creating structured documents
 
-Explain difficult things simply.
+Rules:
 
-Be friendly, useful and concise.
+1. Explain difficult things simply.
+2. Be friendly and useful.
+3. Give accurate answers.
+4. Use headings when useful.
+5. Use bullet points when useful.
+6. For programming questions, give beginner-friendly explanations.
+7. When the user asks for a PDF, create well-organized content suitable for a PDF.
+8. Do not claim that you physically created a PDF unless the application actually creates it.
+9. Do not claim to have generated an image during normal text chat.
+10. Keep answers reasonably concise unless the user asks for detail.
 
-If the user asks for a document,
-give well-organized content that can
-be turned into a PDF.
+`,
 
-Do not claim that you created an actual
-PDF or image when you only generated text.
-          `,
+            input:
+              question.trim()
 
-          input: question.trim()
+          })
 
-        })
-      }
-    );
+        }
+      );
 
 
     const data =
       await response.json();
 
+
+    /*
+     * ============================
+     * OPENAI ERROR
+     * ============================
+     */
 
     if (!response.ok) {
 
@@ -188,6 +267,7 @@ PDF or image when you only generated text.
         "OPENAI ERROR:",
         JSON.stringify(data)
       );
+
 
       return res.status(
         response.status
@@ -202,23 +282,34 @@ PDF or image when you only generated text.
     }
 
 
+    /*
+     * ============================
+     * GET ANSWER
+     * ============================
+     */
+
     let answer =
       data.output_text;
 
 
-    if (!answer && data.output) {
+    if (
+      !answer &&
+      data.output
+    ) {
 
       for (
-        const item of data.output
+        const item
+        of data.output
       ) {
 
-        if (item.content) {
+        if(item.content){
 
-          for (
-            const content of item.content
-          ) {
+          for(
+            const content
+            of item.content
+          ){
 
-            if (content.text) {
+            if(content.text){
 
               answer =
                 content.text;
@@ -231,14 +322,22 @@ PDF or image when you only generated text.
 
         }
 
-        if (answer) break;
+
+        if(answer)
+          break;
 
       }
 
     }
 
 
-    if (!answer) {
+    /*
+     * ============================
+     * NO ANSWER
+     * ============================
+     */
+
+    if(!answer){
 
       return res.status(500).json({
 
@@ -250,19 +349,27 @@ PDF or image when you only generated text.
     }
 
 
+    /*
+     * ============================
+     * SUCCESS
+     * ============================
+     */
+
     return res.status(200).json({
 
-      answer: answer
+      answer:answer
 
     });
 
 
-  } catch (error) {
+  } catch(error) {
+
 
     console.error(
       "BACKEND ERROR:",
       error
     );
+
 
     return res.status(500).json({
 
